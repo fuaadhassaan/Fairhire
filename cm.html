@@ -1,0 +1,249 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FairHire+ — Company Manager</title>
+  <link rel="stylesheet" href="cm.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loaderOverlay" class="loader-overlay" style="display:none;"><div class="loader"></div></div>
+
+<!-- CONFIRM -->
+<div id="confirmBox" class="confirm-box" style="display:none;">
+  <h3 id="confirmTitle">Confirm</h3>
+  <p id="confirmText" style="color:#bbb;margin-top:8px;">Are you sure?</p>
+  <div class="confirm-buttons">
+    <button id="confirmCancel" class="confirm-btn">Cancel</button>
+    <button id="confirmOk" class="confirm-btn" style="background:#ff4b4b">Yes</button>
+  </div>
+</div>
+
+<!-- LOGIN VIEW -->
+<div id="login-view" class="login-wrapper">
+  <form id="loginForm" class="login-box">
+    <h2>Company Manager Login</h2>
+    <input type="text" name="userid" placeholder="UserID (CM)" required autocomplete="off">
+    <input type="password" name="password" placeholder="Password (123)" required autocomplete="off">
+    <button class="login-btn" type="submit">Login</button>
+    <button id="homeBtn" class="home-btn" type="button">Home</button>
+    <div id="loginError" class="error-box" style="display:none;margin-top:10px;">Invalid credentials. Use CM / 123</div>
+    <p style="color:#999;margin-top:12px;text-align:center">Use <b>CM</b> / <b>123</b></p>
+  </form>
+</div>
+
+<!-- APP VIEW -->
+<div id="app-view" class="wrapper" style="display:none;">
+  <div class="menu-toggle" id="menuToggle">&#9776;</div>
+  <div class="sidebar" id="sidebar">
+    <div class="brand">FairHire+ — Company Manager</div>
+    <a href="#" data-section="dashboard" class="menu-link">Dashboard</a>
+    <a href="#" data-section="employee_stats" class="menu-link">Employee Stats</a>
+    <a href="#" data-section="compensation" class="menu-link">Compensation Stats</a>
+    <a href="#" data-section="new_recruits" class="menu-link">New Recruitment</a>
+    <a href="#" data-section="request-admin" class="menu-link">Request to Admin</a>
+    <a href="#" data-section="leave_applications" class="menu-link">Leave Applications</a>
+    <a href="#" data-section="remarks" class="menu-link">Remarks</a>
+
+    <a id="logoutLink" href="#" style="margin-top:20px;">Logout</a>
+  </div>
+
+  <div class="content">
+    <div id="content-area">
+      <h2 class="empty-note">Select a menu item to load content.</h2>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const loader = {
+  show(){ document.getElementById('loaderOverlay').style.display='flex'; },
+  hide(){ document.getElementById('loaderOverlay').style.display='none'; }
+};
+
+function showConfirm(title, text){
+  return new Promise(resolve=>{
+    const cb = document.getElementById('confirmBox');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmText').textContent = text;
+    cb.style.display='block';
+    const ok = document.getElementById('confirmOk');
+    const cancel = document.getElementById('confirmCancel');
+    function cleanup(){ cb.style.display='none'; ok.removeEventListener('click',onOk); cancel.removeEventListener('click',onCancel); }
+    function onOk(){ cleanup(); resolve(true); }
+    function onCancel(){ cleanup(); resolve(false); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+  });
+}
+
+/* ---------- login handling (AJAX) ---------- */
+const loginForm = document.getElementById('loginForm');
+loginForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  loader.show();
+  const fd = new FormData(loginForm);
+  fd.append('login','1');
+  try {
+    const res = await fetch('cm.php', { method:'POST', body:fd, credentials:'same-origin' });
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      if (json.success) {
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('app-view').style.display = 'flex';
+        loadSection('dashboard');
+      } else {
+        document.getElementById('loginError').textContent = json.message || 'Invalid credentials';
+        document.getElementById('loginError').style.display = 'block';
+      }
+    } catch (e) {
+      document.getElementById('loginError').style.display = 'block';
+    }
+  } catch (err) {
+    document.getElementById('loginError').style.display = 'block';
+    console.error(err);
+  } finally {
+    loader.hide();
+  }
+});
+
+/* ---------- home button ---------- */
+document.getElementById('homeBtn').addEventListener('click', (e)=>{
+  e.preventDefault();
+  window.location.href = 'index.html';
+});
+
+/* ---------- logout ---------- */
+document.getElementById('logoutLink').addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const ok = await showConfirm('Logout', 'Do you want to logout?');
+  if(!ok) return;
+  loader.show();
+  try {
+    await fetch('cm.php?action=logout', { credentials:'same-origin' });
+    document.getElementById('app-view').style.display='none';
+    document.getElementById('login-view').style.display='flex';
+  } catch(e){ console.error(e); }
+  loader.hide();
+});
+
+/* ---------- sidebar toggle ---------- */
+document.getElementById('menuToggle').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.toggle('active');
+});
+
+/* ---------- load section ---------- */
+const contentArea = document.getElementById('content-area');
+
+async function loadSection(name){
+  loader.show();
+  try {
+    const res = await fetch('cm.php?section=' + encodeURIComponent(name), { credentials:'same-origin' });
+    const html = await res.text();
+    contentArea.innerHTML = html;
+    bindFragmentEvents();
+  } catch(e) {
+    contentArea.innerHTML = '<div class="section-card"><p style="color:#ff8b8b">Error loading content.</p></div>';
+    console.error(e);
+  } finally { loader.hide(); }
+}
+
+/* ---------- bind events inside loaded fragments ---------- */
+function bindFragmentEvents(){
+  document.querySelectorAll('form.request-form').forEach(form=>{
+    form.addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      const ok = await showConfirm('Confirm','Submit this request?');
+      if(!ok) return;
+      loader.show();
+      try {
+        const fd = new FormData(form);
+        const res = await fetch(form.action, { method:'POST', body:fd, credentials:'same-origin' });
+        const html = await res.text();
+        contentArea.innerHTML = html;
+        bindFragmentEvents();
+      } catch(e){ console.error(e); }
+      loader.hide();
+    });
+  });
+
+  // Leave action forms (approve/decline + remark)
+  document.querySelectorAll('form.leave-action-form').forEach(form=>{
+    form.addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      const ok = await showConfirm('Confirm','Submit this action?');
+      if(!ok) return;
+      loader.show();
+      try {
+        const fd = new FormData(form);
+        const res = await fetch(form.action, { method:'POST', body:fd, credentials:'same-origin' });
+        // after update, reload the leave_applications fragment
+        const r2 = await fetch('cm.php?section=leave_applications', { credentials:'same-origin' });
+        const html = await r2.text();
+        contentArea.innerHTML = html;
+        bindFragmentEvents();
+      } catch(e){ console.error(e); }
+      loader.hide();
+    });
+  });
+
+  // CM remark forms (AJAX submit + reload fragment)
+  document.querySelectorAll('form.cm-remark-form').forEach(form=>{
+    form.addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      loader.show();
+      try {
+        const fd = new FormData(form);
+        const res = await fetch(form.action, { method:'POST', body:fd, credentials:'same-origin' });
+        // after update, reload the remarks fragment
+        const r2 = await fetch('cm.php?section=remarks', { credentials:'same-origin' });
+        const html = await r2.text();
+        contentArea.innerHTML = html;
+        bindFragmentEvents();
+      } catch(e){ console.error(e); }
+      loader.hide();
+    });
+  });
+
+  document.querySelectorAll('canvas[data-chart]').forEach(canvas=>{
+    try {
+      const cfg = JSON.parse(canvas.getAttribute('data-chart'));
+      const ctx = canvas.getContext('2d');
+      new Chart(ctx, cfg);
+    } catch(e){ console.error('chart parse', e); }
+  });
+}
+
+/* ---------- wire menu links ---------- */
+document.querySelectorAll('.menu-link').forEach(a=>{
+  a.addEventListener('click', (ev)=>{
+    ev.preventDefault();
+    loadSection(a.dataset.section);
+    if (document.getElementById('sidebar').classList.contains('active')) {
+      document.getElementById('sidebar').classList.remove('active');
+    }
+  });
+});
+
+/* try check session on load */
+(async function(){
+  try {
+    const res = await fetch('cm.php?check=1', { credentials:'same-origin' });
+    const txt = await res.text();
+    try {
+      const j = JSON.parse(txt);
+      if (j.logged) {
+        document.getElementById('login-view').style.display='none';
+        document.getElementById('app-view').style.display='flex';
+        loadSection('dashboard');
+      }
+    } catch(e){}
+  } catch(e){}
+})();
+</script>
+</body>
+</html>

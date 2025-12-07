@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Home of FairHire+</title>
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <main class="main-section">
+    <!-- HERO / BANNER -->
+    <section class="banner" id="home" aria-label="FairHire hero banner" style="background-image: url('fh.png'); background-size: cover; background-position: center;">
+      <div class="banner-content">
+        <h1>FairHire+</h1>
+        <p>An easy and reliable HR Management System— LIKE NEVER BEFORE!</p>
+        <button class="explore-btn" type="button" onclick="scrollToExplore()">Explore</button>
+      </div>
+    </section>
+
+    <!-- EXPLORE -->
+    <section class="explore" id="explore" aria-label="Choose role">
+      <h2>Select Your Access</h2>
+      <div class="access-buttons">
+        <a class="btn" href="admin.html">Admin</a>
+        <a class="btn" href="hr.html">HR Manager</a>
+        <a class="btn" href="cm.html">Company Manager</a>
+        <a class="btn" href="em.html">Employee</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    All Rights Reserved by Team Fairhire+ © |
+    For enquiries, email: <a href="mailto:support.fairhire@gmail.com">support.fairhire@gmail.com</a>
+  </footer>
+
+  <script>
+    function scrollToExplore() {
+      document.getElementById("explore").scrollIntoView({ behavior: "smooth" });
+    }
+  </script>
+</body>
+</html>
